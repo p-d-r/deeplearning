@@ -1,11 +1,12 @@
 import unittest
-from Layers import Base, FullyConnected, Helpers
-from Optimization import Optimizers
+from Layers import *
+from Optimization import *
 import numpy as np
 #import NeuralNetwork
 import matplotlib.pyplot as plt
 import tabulate
 import argparse
+
 
 ID = 1  # identifier for dispatcher
 
