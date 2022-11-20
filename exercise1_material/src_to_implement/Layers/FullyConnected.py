@@ -1,11 +1,10 @@
 from .Base import BaseLayers
 import numpy as np
-from Optimization import Optimizers
 import sys
-
+sys.path.append("..")
+from src_to_implement.Optimization import Optimizers
 
 np.random.seed()
-
 
 class FullyConnected(BaseLayers):
 
@@ -14,33 +13,29 @@ class FullyConnected(BaseLayers):
         self.trainable = True
         self.input_size = input_size
         self.output_size = output_size
-        self.weights = np.random.rand(input_size + 1, output_size)
-        self.input_tensor = None
-        self._optimizer = Optimizers.Sgd(1)
-        self.gradient_weights = None
-        self.gradient_tensor = None
+        self.weights = np.random.rand(input_size, output_size) * 0.1
+        self.bias = np.random.rand(1, output_size)
+        self._optimizer = 0
 
-    # forward layer
     def forward(self, input_tensor):
-        # number of biases needed = batch_size = input_tensor.shape[0]
-        bias_entries = np.ones((1, input_tensor.shape[0])).T
         self.input_tensor = input_tensor
-        # hstack -> inserts column for bias values
-        return np.dot(np.hstack((input_tensor, bias_entries)), self.weights)
+        self.output = np.dot(self.input_tensor, self.weights) + self.bias
+        return self.output
 
-    # backward layer
     def backward(self, error_tensor):
-        output_backward = np.dot(error_tensor, self.weights[:-1].T)
-        # implement gradient and bias update
+        input_error = np.dot(error_tensor, self.weights.T)
         self.gradient_weights = np.dot(self.input_tensor.T, error_tensor)
-        self.weights = self._optimizer.calculate_update(self.weights[:-1], self.gradient_weights)
-        #self.weights[-1] = self._optimizer.calculate_update(self.weights[-1], error_tensor)
-        return output_backward
+        if self._optimizer != 0:
+            self.weights = self._optimizer.calculate_update(self.weights, self.gradient_weights)
+            self.bias = self._optimizer.calculate_update(self.bias, error_tensor)
+        return input_error
 
-    # getter method optimizer
     def get_optimizer(self):
         return self._optimizer
 
-    # setter method optimizer
     def set_optimizer(self, x):
         self._optimizer = x
+
+    optimizer = property(get_optimizer, set_optimizer)
+
+

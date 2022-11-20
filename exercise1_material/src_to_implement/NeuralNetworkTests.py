@@ -1,8 +1,8 @@
 import unittest
-from Layers import *
-from Optimization import *
+from Layers import FullyConnected, Base, Helpers, ReLU, SoftMax
+from Optimization import Optimizers, Loss
 import numpy as np
-#import NeuralNetwork
+import NeuralNetwork
 import matplotlib.pyplot as plt
 import tabulate
 import argparse
