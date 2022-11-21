@@ -12,14 +12,16 @@ class NeuralNetwork:
         self.data_layer = None
         self.loss_layer = None
 
+
     def forward(self):
         self.input_tensor, self.label_tensor = self.data_layer.next()
-        layer_input = self.input_tensor
-        for layer in self.layers:
-            layer_input = layer.forward(layer_input)
+        self.layer_input = self.input_tensor
 
-        self.output = layer_input
-        return self.output
+        for layer in self.layers:
+            self.layer_input = layer.forward(self.layer_input)
+        self.output = self.layer_input
+
+        return self.loss_layer.forward(self.output, self.label_tensor)
 
     def backward(self):
         prediction = self.output
