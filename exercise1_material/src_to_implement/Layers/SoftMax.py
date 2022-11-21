@@ -12,10 +12,9 @@ class SoftMax(BaseLayers):
         e = np.exp(input_tensor - s)
         div = np.sum(e, axis=1)
         div = div[:, np.newaxis]
-        self.input = input_tensor
-        return e / div
+        self.output = e/div
+        return self.output
 
     def backward(self, error_tensor):
-        y = self.forward(self.input)
-        output = error_tensor * y
-        return y * (error_tensor - np.sum(output, axis=1, keepdims=True))
+        output = error_tensor * self.output
+        return self.output * (error_tensor - np.sum(output, axis=1, keepdims=True))

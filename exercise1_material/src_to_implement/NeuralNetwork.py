@@ -19,13 +19,13 @@ class NeuralNetwork:
 
         for layer in self.layers:
             self.layer_input = layer.forward(self.layer_input)
-        self.output = self.layer_input
+        self.output = self.loss_layer.forward(self.layer_input, self.label_tensor)
 
-        return self.loss_layer.forward(self.output, self.label_tensor)
+        return self.output
 
     def backward(self):
         prediction = self.output
-        self.loss.append(self.loss_layer.forward(prediction, self.label_tensor))
+        self.loss.append(self.output)
         error_tensor = self.loss_layer.backward(self.label_tensor)
         for layer in reversed(self.layers):
             error_tensor = layer.backward(error_tensor)
@@ -38,7 +38,7 @@ class NeuralNetwork:
 
     def train(self, iterations):
         for i in range(0, iterations):
-            prediction = self.forward()
+            self.forward()
             self.backward()
 
     def test(self, input_tensor):
