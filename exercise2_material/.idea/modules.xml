@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/exercise2_material.iml" filepath="$PROJECT_DIR$/.idea/exercise2_material.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../deeplearning/exercise2_material/.idea/exercise2_material.iml" filepath="$PROJECT_DIR$/../deeplearning/exercise2_material/.idea/exercise2_material.iml" />
     </modules>
   </component>
 </project>

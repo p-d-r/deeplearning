@@ -1,8 +1,10 @@
 from .Base import BaseLayers
+from .Initializers import Constant, UniformRandom, He, Xavier
 import numpy as np
 import sys
 sys.path.append("..")
 from src_to_implement.Optimization import Optimizers
+
 
 np.random.seed()
 
@@ -36,6 +38,16 @@ class FullyConnected(BaseLayers):
     def set_optimizer(self, x):
         self._optimizer = x
 
+    def get_gradient_weights(self):
+        return self.gradient_weights
+
     optimizer = property(get_optimizer, set_optimizer)
+
+    def initialize(self, weights_initializer, bias_initializer):
+        weights = weights_initializer
+        self.weights = weights.initialize(np.shape(self.weights), self.input_size, self.output_size)
+        bias = bias_initializer
+        self.bias = bias.initialize(np.shape(self.bias), self.input_size, self.output_size)
+        return
 
 

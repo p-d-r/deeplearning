@@ -1,6 +1,6 @@
 import unittest
-from Layers import *
-from Optimization import *
+from Layers import Base, FullyConnected, Helpers, Initializers, ReLU, SoftMax, Flatten, Conv, Pooling
+from Optimization import Loss, Optimizers
 import numpy as np
 from scipy import stats
 from scipy.ndimage.filters import gaussian_filter
@@ -418,6 +418,7 @@ class TestFlatten(unittest.TestCase):
     def test_flatten_forward(self):
         flatten = Flatten.Flatten()
         output_tensor = flatten.forward(self.input_tensor)
+        print(np.shape(self.input_tensor))
         input_vector = np.array(range(int(np.prod(self.input_shape) * self.batch_size)), dtype=float)
         input_vector = input_vector.reshape(self.batch_size, np.prod(self.input_shape))
         self.assertLessEqual(np.sum(np.abs(output_tensor-input_vector)), 1e-9)
