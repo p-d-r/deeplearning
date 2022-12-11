@@ -26,23 +26,15 @@ class Conv(BaseLayers):
         padded = np.pad(input_tensor, [(0,), (0,), (self.pad,), (self.pad,)], 'constant')
         output_tensor = np.zeros((self.b, self.num_kernels, out_height, out_width))
 
-
         for batch in range(self.b):
-            for c in range(self.num_kernels):
-                output_layer = output_tensor[batch][c]
-                # iterate over
+            for kernel in range(self.num_kernels):
                 for y in range(out_height):
                     for x in range(out_width):
-                        kernel = padded[batch, 0, y*self.stride_y:y*self.stride_y+self.m, x*self.stride_x:x*self.stride_x+self.n]
-                        weighz = self.weights[c][0]
-                        biaz = self.bias[c]
-                        dot = np.matmul(kernel, weighz) + biaz
-                        sum = np.sum(dot)
-                        output_layer[y][x] = sum
-                        #output_layer[y][x] = np.sum(np.dot(padded[batch, :, y*self.stride_y:y*self.stride_y+self.m,
-                         #                                  x*self.stride_x:x*self.stride_x+self.n]
-                                       #                    , self.weights[c])) + self.bias[c]
-                        pass
+                        for channels in range(self.cI):
+                            kernel_scope = padded[batch,:,y*self.stride_y:y*self.stride_y+self.m, x*self.stride_x:x*self.stride_x+self.n]
+                            res = np.sum(kernel_scope * self.weights[kernel]) + self.bias[kernel]
+                            output_tensor[batch, kernel, y, x] = res
+
         return output_tensor
 
     def backward(self, error_tensor):
