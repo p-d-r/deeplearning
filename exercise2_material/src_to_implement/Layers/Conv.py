@@ -1,6 +1,9 @@
-import numpy as np
-from scipy import signal
 from .Base import BaseLayers
+from .Initializers import Constant, UniformRandom, He, Xavier
+import numpy as np
+import sys
+sys.path.append("..")
+from src_to_implement.Optimization import Optimizers
 
 
 class Conv(BaseLayers):
@@ -15,6 +18,8 @@ class Conv(BaseLayers):
         self.weights = np.random.uniform(0, 1, (num_kernels, self.channels, self.m, self.n))
         self.stride_y, self.stride_x = stride_shape
         self.pad = int(self.m / 2)
+        self.gradient_weights = None
+        self.gradient_bias = None
 
     def forward(self, input_tensor):
 
@@ -40,4 +45,9 @@ class Conv(BaseLayers):
     def backward(self, error_tensor):
         return
 
-
+    def initialize(self, weights_initializer, bias_initializer):
+        weights = weights_initializer
+        self.weights = weights.initialize(np.shape(self.weights), np.prod(self.convolution_shape), np.prod(self.convolution_shape[1:]) * self.num_kernels)
+        bias = bias_initializer
+        self.bias = bias.initialize(np.shape(self.bias), np.prod(self.convolution_shape), np.prod(self.convolution_shape[1:]) * self.num_kernels)
+        return
