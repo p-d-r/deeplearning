@@ -2,6 +2,7 @@ from .Base import BaseLayers
 from .Initializers import Constant, UniformRandom, He, Xavier
 import numpy as np
 import sys
+import math
 from copy import deepcopy
 sys.path.append("..")
 import scipy.signal
@@ -16,6 +17,8 @@ class Conv(BaseLayers):
         self.kernel_shape = convolution_shape  # [c,m] or [c,m,n]
         self.num_kernels = num_kernels
         self.bias = np.random.uniform(0, 1, (num_kernels,))
+        self.pad_x = 0
+        self.pad_y = 0
 
         self.c, self.m, self.n = [], [], []
         if len(convolution_shape) == 3:
@@ -28,7 +31,6 @@ class Conv(BaseLayers):
             self.stride_y = stride_shape[0]
             self.weights = np.random.uniform(0, 1, (num_kernels, self.channels, self.m))
 
-        self.pad = int(self.m / 2)
         self._gradient_weights = None
         self._gradient_bias = None
         self._optimizer_weights = None
@@ -59,13 +61,30 @@ class Conv(BaseLayers):
         if len(input_tensor.shape) == 4: # 2D conv
             self.b, self.cI, self.y, self.x = input_tensor.shape
 
-            print(len(input_tensor.shape))
+            out_height = int(math.ceil(float(self.y) / float(self.stride_y)))
+            out_width = int(math.ceil(float(self.x) / float(self.stride_x)))
 
-            out_height = int((self.y + 2 * self.pad - self.m) / self.stride_y) + 1
-            out_width = int((self.x + 2 * self.pad - self.n) / self.stride_x) + 1
+            if self.y % self.stride_y == 0:
+                pad_height = max((self.m - self.stride_y), 0)
+            else:
+                pad_height = max(self.m - (self.y % self.stride_y), 0)
+            if self.x % self.stride_x == 0:
+                pad_width = max((self.n - self.stride_x), 0)
+            else:
+                pad_width = max(self.n - (self.x % self.stride_x), 0)
 
-            padded = np.pad(input_tensor, [(0,), (0,), (self.pad,), (self.pad,)], 'constant')
-            output_tensor = np.zeros((self.b, self.num_kernels, out_height, out_width))
+            pad_top = pad_height // 2  # amount of zero padding on the top
+            pad_bottom = pad_height - pad_top  # amount of zero padding on the bottom
+            pad_left = pad_width // 2  # amount of zero padding on the left
+            pad_right = pad_width - pad_left  # amount of zero padding on the right
+
+            output_tensor = np.zeros((self.b, self.num_kernels, out_height, out_width))  # convolution output
+            # Add zero padding to the input image
+            padded = np.zeros((self.b, self.cI, self.y + pad_height, self.x + pad_width,))
+            if pad_height == 0 and pad_bottom == 0 and pad_left == 0 and pad_right == 0: # 1x1 convolution case
+                padded = input_tensor
+            else:
+                padded[:, :, pad_top:-pad_bottom, pad_left:-pad_right] = input_tensor[:, :]
 
             for batch in range(self.b):
                 for kernel in range(self.num_kernels):
@@ -74,17 +93,26 @@ class Conv(BaseLayers):
                             for channels in range(self.cI):
                                 kernel_scope = padded[batch, :, y * self.stride_y:y * self.stride_y + self.m,
                                                x * self.stride_x:x * self.stride_x + self.n]
-                                res = np.sum(kernel_scope * self.weights[kernel]) + self.bias[kernel]
-                                output_tensor[batch, kernel, y, x] = res
-        else: # 1D conv
+                                product = kernel_scope * self.weights[kernel]
+                                sum = np.sum(product) + self.bias[kernel]
+                                output_tensor[batch, kernel, y, x] = sum
+        else:  # 1D conv
             self.b, self.cI, self.y = input_tensor.shape
 
-            print(len(input_tensor.shape))
+            out_height = int(math.ceil(float(self.y) / float(self.stride_y)))
 
-            out_height = int((self.y + 2 * self.pad - self.m) / self.stride_y) + 1
+            if self.y % self.stride_y == 0:
+                pad_height = max((self.m - self.stride_y), 0)
+            else:
+                pad_height = max(self.m - (self.y % self.stride_y), 0)
 
-            padded = np.pad(input_tensor, (self.pad, self.pad), 'constant', constant_values=(0, 0))
-            output_tensor = np.zeros((self.b, self.num_kernels, out_height))
+            pad_top = pad_height // 2  # amount of zero padding on the top
+            pad_bottom = pad_height - pad_top  # amount of zero padding on the bottom
+
+            output_tensor = np.zeros((self.b, self.num_kernels, out_height))  # convolution output
+            # Add zero padding to the input image
+            padded = np.zeros((self.b, self.cI, self.y + pad_height,))
+            padded[:, :, pad_top:-pad_bottom] = input_tensor
 
             for batch in range(self.b):
                 for kernel in range(self.num_kernels):
@@ -124,7 +152,6 @@ class Conv(BaseLayers):
                 conv = []
                 for n in range(self.num_kernels):
                     conv.append(scipy.signal.convolve(error_tensor_expand[b, n], self.weights[n, c], mode='same'))
-
                     output_tensor[b, c, :, :] = np.sum(np.asarray(conv), axis=0)
 
         padding = np.pad(self.input_tensor, ((0, 0), (0, 0), (int(self.m / 2), int((self.m - 1) / 2)),
