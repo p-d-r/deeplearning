@@ -15,21 +15,21 @@ class FullyConnected(BaseLayers):
         self.trainable = True
         self.input_size = input_size
         self.output_size = output_size
-        self.weights = np.random.rand(input_size, output_size) * 0.1
-        self.bias = np.random.rand(1, output_size)
+        self.weights = np.random.rand(input_size + 1, output_size)
+        self.bias = self.weights[-1, :]
         self._optimizer = 0
 
     def forward(self, input_tensor):
         self.input_tensor = input_tensor
-        self.output = np.dot(self.input_tensor, self.weights) + self.bias
+        self.input_tensor = np.append(self.input_tensor, np.ones((self.input_tensor.shape[0], 1)), axis=1)
+        self.output = np.dot(self.input_tensor, self.weights)
         return self.output
 
     def backward(self, error_tensor):
-        input_error = np.dot(error_tensor, self.weights.T)
+        input_error = np.dot(error_tensor, self.weights[0:-1, :].T)
         self.gradient_weights = np.dot(self.input_tensor.T, error_tensor)
         if self._optimizer != 0:
             self.weights = self._optimizer.calculate_update(self.weights, self.gradient_weights)
-            self.bias = self._optimizer.calculate_update(self.bias, error_tensor)
         return input_error
 
     def get_optimizer(self):
