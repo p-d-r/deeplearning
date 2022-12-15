@@ -64,27 +64,17 @@ class Conv(BaseLayers):
             out_height = int(math.ceil(float(self.y) / float(self.stride_y)))
             out_width = int(math.ceil(float(self.x) / float(self.stride_x)))
 
-            if self.y % self.stride_y == 0:
-                pad_height = max((self.m - self.stride_y), 0)
-            else:
-                pad_height = max(self.m - (self.y % self.stride_y), 0)
-            if self.x % self.stride_x == 0:
-                pad_width = max((self.n - self.stride_x), 0)
-            else:
-                pad_width = max(self.n - (self.x % self.stride_x), 0)
+            pad_height = self.m
+            pad_width = self.n
 
             pad_top = pad_height // 2  # amount of zero padding on the top
-            pad_bottom = pad_height - pad_top  # amount of zero padding on the bottom
+            pad_bottom = pad_height //2
             pad_left = pad_width // 2  # amount of zero padding on the left
-            pad_right = pad_width - pad_left  # amount of zero padding on the right
+            pad_right = pad_width // 2
 
             output_tensor = np.zeros((self.b, self.num_kernels, out_height, out_width))  # convolution output
-            # Add zero padding to the input image
-            padded = np.zeros((self.b, self.cI, self.y + pad_height, self.x + pad_width,))
-            if pad_height == 0 and pad_bottom == 0 and pad_left == 0 and pad_right == 0: # 1x1 convolution case
-                padded = input_tensor
-            else:
-                padded[:, :, pad_top:-pad_bottom, pad_left:-pad_right] = input_tensor[:, :]
+
+            padded = np.pad(input_tensor, ((0, 0), (0, 0), (pad_top, pad_bottom), (pad_left, pad_right)), 'constant', constant_values=(0))
 
             for batch in range(self.b):
                 for kernel in range(self.num_kernels):
