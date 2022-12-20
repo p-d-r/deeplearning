@@ -1,8 +1,8 @@
-from generator import ImageGenerator
+#from generator import ImageGenerator
 import pattern
 import numpy as np
 
-checker_test = pattern.Checker(1024, 32)
+checker_test = pattern.Checker(32, 16)
 checker_test.draw()
 checker_test.show()
 

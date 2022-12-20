@@ -462,32 +462,32 @@ class TestConv(unittest.TestCase):
         for i in range(self.batch_size):
             self.label_tensor[i, np.random.randint(0, self.categories)] = 1
 
-    def test_trainable(self):
+    def test_trainable(self): #yes
         layer = Conv.Conv((1, 1), self.kernel_shape, self.num_kernels)
         self.assertTrue(layer.trainable)
 
-    def test_forward_size(self):
+    def test_forward_size(self): #no
         conv = Conv.Conv((1, 1), self.kernel_shape, self.num_kernels)
         input_tensor = np.array(range(int(np.prod(self.input_shape) * self.batch_size)), dtype=float)
         input_tensor = input_tensor.reshape(self.batch_size, *self.input_shape)
         output_tensor = conv.forward(input_tensor)
         self.assertEqual(output_tensor.shape, (self.batch_size, self.num_kernels, *self.input_shape[1:]))
 
-    def test_forward_size_stride(self):
+    def test_forward_size_stride(self): #no
         conv = Conv.Conv((3, 2), self.kernel_shape, self.num_kernels)
         input_tensor = np.array(range(int(np.prod(self.input_shape) * self.batch_size)), dtype=float)
         input_tensor = input_tensor.reshape(self.batch_size, *self.input_shape)
         output_tensor = conv.forward(input_tensor)
         self.assertEqual(output_tensor.shape, (self.batch_size, self.num_kernels, 4, 7))
 
-    def test_forward_size_stride_uneven_image(self):
+    def test_forward_size_stride_uneven_image(self): #no
         conv = Conv.Conv((3, 2), self.kernel_shape, self.num_kernels + 1)
         input_tensor = np.array(range(int(np.prod(self.uneven_input_shape) * (self.batch_size + 1))), dtype=float)
         input_tensor = input_tensor.reshape(self.batch_size + 1, *self.uneven_input_shape)
         output_tensor = conv.forward(input_tensor)
         self.assertEqual(output_tensor.shape, ( self.batch_size+1, self.num_kernels+1, 4, 8))
 
-    def test_forward(self):
+    def test_forward(self): # yes
         np.random.seed(1337)
         conv = Conv.Conv((1, 1), (1, 3, 3), 1)
         conv.weights = (1./15.) * np.array([[[1, 2, 1], [2, 3, 2], [1, 2, 1]]])
@@ -499,7 +499,7 @@ class TestConv(unittest.TestCase):
         difference = np.max(np.abs(expected_output - output_tensor))
         self.assertAlmostEqual(difference, 0., places=1)
 
-    def test_forward_multi_channel(self):
+    def test_forward_multi_channel(self): #yes
         np.random.seed(1337)
         maps_in = 2
         bias = 1
@@ -515,7 +515,7 @@ class TestConv(unittest.TestCase):
         difference = np.max(np.abs(expected_output - output_tensor) / maps_in)
         self.assertAlmostEqual(difference, 0., places=1)
 
-    def test_forward_fully_connected_channels(self):
+    def test_forward_fully_connected_channels(self): #yes
         np.random.seed(1337)
         conv = Conv.Conv((1, 1), (3, 3, 3), 1)
         conv.weights = (1. / 15.) * np.array([[[1, 2, 1], [2, 3, 2], [1, 2, 1]], [[1, 2, 1], [2, 3, 2], [1, 2, 1]], [[1, 2, 1], [2, 3, 2], [1, 2, 1]]])
@@ -531,14 +531,14 @@ class TestConv(unittest.TestCase):
         difference = np.max(np.abs(expected_output - output_tensor))
         self.assertLess(difference, 0.2)
 
-    def test_1D_forward_size(self):
+    def test_1D_forward_size(self): #no
         conv = Conv.Conv([2], (3, 3), self.num_kernels)
         input_tensor = np.array(range(3 * 15 * self.batch_size), dtype=float)
         input_tensor = input_tensor.reshape((self.batch_size, 3, 15))
         output_tensor = conv.forward(input_tensor)
         self.assertEqual(output_tensor.shape,  (self.batch_size,self.num_kernels, 8))
 
-    def test_backward_size(self):
+    def test_backward_size(self): #no
         conv = Conv.Conv((1, 1), self.kernel_shape, self.num_kernels)
         input_tensor = np.array(range(np.prod(self.input_shape) * self.batch_size), dtype=float)
         input_tensor = input_tensor.reshape(self.batch_size, *self.input_shape)
@@ -546,7 +546,7 @@ class TestConv(unittest.TestCase):
         error_tensor = conv.backward(output_tensor)
         self.assertEqual(error_tensor.shape, (self.batch_size, *self.input_shape))
 
-    def test_backward_size_stride(self):
+    def test_backward_size_stride(self): #no
         conv = Conv.Conv((3, 2), self.kernel_shape, self.num_kernels)
         input_tensor = np.array(range(np.prod(self.input_shape) * self.batch_size), dtype=float)
         input_tensor = input_tensor.reshape(self.batch_size, *self.input_shape)
@@ -554,7 +554,7 @@ class TestConv(unittest.TestCase):
         error_tensor = conv.backward(output_tensor)
         self.assertEqual(error_tensor.shape, (self.batch_size, *self.input_shape))
 
-    def test_1D_backward_size(self):
+    def test_1D_backward_size(self): #no
         conv = Conv.Conv([2], (3, 3), self.num_kernels)
         input_tensor = np.array(range(45 * self.batch_size), dtype=float)
         input_tensor = input_tensor.reshape((self.batch_size, 3, 15))
@@ -562,7 +562,7 @@ class TestConv(unittest.TestCase):
         error_tensor = conv.backward(output_tensor)
         self.assertEqual(error_tensor.shape, (self.batch_size, 3, 15))
 
-    def test_1x1_convolution(self):
+    def test_1x1_convolution(self): # yes
         conv = Conv.Conv((1, 1), (3, 1, 1), self.num_kernels)
         input_tensor = np.array(range(self.input_size * self.batch_size), dtype=float)
         input_tensor = input_tensor.reshape(self.batch_size, *self.input_shape)
@@ -571,7 +571,7 @@ class TestConv(unittest.TestCase):
         error_tensor = conv.backward(output_tensor)
         self.assertEqual(error_tensor.shape, (self.batch_size, *self.input_shape))
 
-    def test_layout_preservation(self):
+    def test_layout_preservation(self): # yes
         conv = Conv.Conv((1, 1), (3, 3, 3), 1)
         conv.initialize(self.TestInitializer(), Initializers.Constant(0.0))
         input_tensor = np.array(range(np.prod(self.input_shape) * self.batch_size), dtype=float)
@@ -579,7 +579,7 @@ class TestConv(unittest.TestCase):
         output_tensor = conv.forward(input_tensor)
         self.assertAlmostEqual(np.sum(np.abs(np.squeeze(output_tensor) - input_tensor[:,1,:,:])), 0.)
 
-    def test_gradient(self):
+    def test_gradient(self): #yes
         np.random.seed(1337)
         input_tensor = np.abs(np.random.random((2, 3, 5, 7)))
         layers = list()
@@ -589,7 +589,7 @@ class TestConv(unittest.TestCase):
         difference = Helpers.gradient_check(layers, input_tensor, self.label_tensor)
         self.assertLessEqual(np.sum(difference), 5e-2)
 
-    def test_gradient_weights(self):
+    def test_gradient_weights(self): #yes
         np.random.seed(1337)
         input_tensor = np.abs(np.random.random((2, 3, 5, 7)))
         layers = list()
@@ -599,7 +599,7 @@ class TestConv(unittest.TestCase):
         difference = Helpers.gradient_check_weights(layers, input_tensor, self.label_tensor, False)
         self.assertLessEqual(np.sum(difference), 1e-5)
 
-    def test_gradient_weights_strided(self):
+    def test_gradient_weights_strided(self): # yes
         np.random.seed(1337)
         label_tensor = np.random.random([self.batch_size, 36])
         input_tensor = np.abs(np.random.random((2, 3, 5, 7)))
@@ -610,7 +610,7 @@ class TestConv(unittest.TestCase):
         difference = Helpers.gradient_check_weights(layers, input_tensor, label_tensor, False)
         self.assertLessEqual(np.sum(difference), 1e-5)
 
-    def test_gradient_bias(self):
+    def test_gradient_bias(self): # yes
         np.random.seed(1337)
         input_tensor = np.abs(np.random.random((2, 3, 5, 7)))
         layers = list()
@@ -621,16 +621,16 @@ class TestConv(unittest.TestCase):
 
         self.assertLessEqual(np.sum(difference), 1e-5)
 
-    def test_weights_init(self):
+    def test_weights_init(self): #yes
         # simply checks whether you have not initialized everything with zeros
         conv = Conv.Conv((1, 1), (100, 10, 10), 150)
         self.assertGreater(np.mean(np.abs(conv.weights)), 1e-3)
 
-    def test_bias_init(self):
+    def test_bias_init(self): # yes
         conv = Conv.Conv((1, 1), (1, 1, 1), 150 * 100 * 10 * 10)
         self.assertGreater(np.mean(np.abs(conv.bias)), 1e-3)
 
-    def test_gradient_stride(self):
+    def test_gradient_stride(self): #yes
         np.random.seed(1337)
         label_tensor = np.random.random([self.batch_size, 35])
         input_tensor = np.abs(np.random.random((2, 6, 5, 14)))
@@ -641,7 +641,7 @@ class TestConv(unittest.TestCase):
         difference = Helpers.gradient_check(layers, input_tensor, label_tensor)
         self.assertLessEqual(np.sum(difference), 1e-4)
 
-    def test_update(self):
+    def test_update(self): #no
         input_tensor = np.random.uniform(-1, 1, (self.batch_size, *self.input_shape))
         conv = Conv.Conv((3, 2), self.kernel_shape, self.num_kernels)
         conv.optimizer = Optimizers.Sgd(1)
@@ -656,7 +656,7 @@ class TestConv(unittest.TestCase):
             new_output_tensor = conv.forward(input_tensor)
             self.assertLess(np.sum(np.power(output_tensor, 2)), np.sum(np.power(new_output_tensor, 2)))
 
-    def test_initialization(self):
+    def test_initialization(self): # yes
         conv = Conv.Conv((1, 1), self.kernel_shape, self.num_kernels)
         init = TestConv.TestInitializer()
         conv.initialize(init, Initializers.Constant(0.1))
