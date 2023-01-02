@@ -1,7 +1,4 @@
-import numpy as np
 from Layers import Base
-from Layers import FullyConnected, ReLU, SoftMax, Base
-from Optimization import Loss, Optimizers
 import copy
 
 class NeuralNetwork(Base.BaseLayers):
