@@ -1,13 +1,13 @@
 import unittest
 try:
     LSTM_TEST = True
-    from Layers import *
+    from Layers import BatchNormalization, Conv, Dropout, Base, Flatten, FullyConnected, Helpers, Initializers, Pooling, ReLU, Sigmoid, SoftMax, TanH
 except BaseException as e:
     if str(e)[-6:] == "'LSTM'":
         LSTM_TEST = False
     else:
         raise e
-from Optimization import *
+from Optimization import Loss, Constraints, Optimizers
 import numpy as np
 from scipy import stats
 from scipy.ndimage import gaussian_filter

@@ -1,11 +1,12 @@
 from Layers import Base
+from Optimization import Constraints
 import copy
 
 class NeuralNetwork(Base.BaseLayers):
 
     def __init__(self, optimizer, weights_initializer, bias_initializer):
         super(NeuralNetwork, self).__init__()
-        self._testing_phase = self.testing_phase
+        self._phase = self.testing_phase
         self.optimizer = optimizer
         self.loss = []
         self.layers = []
@@ -40,20 +41,22 @@ class NeuralNetwork(Base.BaseLayers):
         return
 
     def get_phase(self):
-        return self._testing_phase
+        return self._phase
 
     def set_phase(self, testing_phase):
-        self._testing_phase = testing_phase
+        self._phase = testing_phase
         return
 
     phase = property(get_phase, set_phase)
 
     def train(self, iterations):
+        self.set_phase(False)
         for i in range(0, iterations):
             self.forward()
             self.backward()
 
     def test(self, input_tensor):
+        self.set_phase(True)
         layer_input = input_tensor
         for layer in self.layers:
             layer_input = layer.forward(layer_input)

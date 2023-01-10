@@ -1,4 +1,5 @@
 import numpy as np
+from .Constraints import L1_Regularizer, L2_Regularizer
 
 class Optimizer:
     def __init__(self):
@@ -15,7 +16,12 @@ class Sgd(Optimizer):
         self.learning_rate = learning_rate
 
     def calculate_update(self, weight_tensor, gradient_tensor):
-        self.updated_weight = weight_tensor - self.learning_rate * gradient_tensor
+
+        if self.regularizer == None:
+            self.updated_weight = weight_tensor - self.learning_rate * gradient_tensor
+        else:
+            self.updated_weight = weight_tensor - self.learning_rate * gradient_tensor - self.regularizer.calculate_gradient(weight_tensor) * self.learning_rate
+
         return self.updated_weight
 
 class SgdWithMomentum(Optimizer):
@@ -26,8 +32,14 @@ class SgdWithMomentum(Optimizer):
         self.v = 0
 
     def calculate_update(self, weight_tensor, gradient_tensor):
-        self.v = self.momentum_rate * self.v - self.learning_rate * gradient_tensor
-        self.updated_weight = weight_tensor + self.v
+
+        if self.regularizer == None:
+            self.v = self.momentum_rate * self.v - self.learning_rate * gradient_tensor
+            self.updated_weight = weight_tensor + self.v
+        else:
+            self.v = self.momentum_rate * self.v - self.learning_rate * gradient_tensor
+            self.updated_weight = weight_tensor + self.v - self.regularizer.calculate_gradient(weight_tensor) * self.learning_rate
+
         return self.updated_weight
 
 class Adam(Optimizer):
@@ -49,4 +61,23 @@ class Adam(Optimizer):
         bias_r = self.r / (1 - self.rho ** self.k)
         bias_v = self.v / (1 - self.mu ** self.k)
         self.updated_weights = weight_tensor - self.learning_rate * (bias_v / (np.sqrt(bias_r) + np.finfo(float).eps))
+
+        if self.regularizer == None:
+            self.k = self.k + 1
+            self.g = gradient_tensor
+            self.v = self.mu * self.v + (1 - self.mu) * self.g
+            self.r = self.rho * self.r + (1 - self.rho) * self.g ** 2
+            bias_r = self.r / (1 - self.rho ** self.k)
+            bias_v = self.v / (1 - self.mu ** self.k)
+            self.updated_weights = weight_tensor - self.learning_rate * (bias_v / (np.sqrt(bias_r) + np.finfo(float).eps))
+        else:
+            self.k = self.k + 1
+            self.g = gradient_tensor
+            self.v = self.mu * self.v + (1 - self.mu) * self.g
+            self.r = self.rho * self.r + (1 - self.rho) * self.g ** 2
+            bias_r = self.r / (1 - self.rho ** self.k)
+            bias_v = self.v / (1 - self.mu ** self.k)
+            self.updated_weights = weight_tensor - self.learning_rate * (bias_v / (np.sqrt(bias_r) + np.finfo(float).eps)) - self.regularizer.calculate_gradient(
+                weight_tensor) * self.learning_rate
+
         return self.updated_weights

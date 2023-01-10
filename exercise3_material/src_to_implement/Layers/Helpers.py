@@ -6,12 +6,13 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.datasets import load_iris, load_digits
 
 
-def gradient_check(layers, input_tensor, label_tensor):
+def gradient_check(layers, input_tensor, label_tensor, seed=None):
     epsilon = 1e-5
     difference = np.zeros_like(input_tensor)
 
     activation_tensor = input_tensor.copy()
     for layer in layers[:-1]:
+        np.random.seed(seed) if seed is not None else None
         activation_tensor = layer.forward(activation_tensor)
     layers[-1].forward(activation_tensor, label_tensor)
 
@@ -29,7 +30,9 @@ def gradient_check(layers, input_tensor, label_tensor):
         analytical_derivative = error_tensor[it.multi_index]
 
         for layer in layers[:-1]:
+            np.random.seed(seed) if seed is not None else None
             plus_epsilon = layer.forward(plus_epsilon)
+            np.random.seed(seed) if seed is not None else None
             minus_epsilon = layer.forward(minus_epsilon)
         upper_error = layers[-1].forward(plus_epsilon, label_tensor)
         lower_error = layers[-1].forward(minus_epsilon, label_tensor)
