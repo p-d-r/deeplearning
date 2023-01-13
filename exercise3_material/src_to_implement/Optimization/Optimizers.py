@@ -54,13 +54,6 @@ class Adam(Optimizer):
         self.k = 0
 
     def calculate_update(self, weight_tensor, gradient_tensor):
-        self.k = self.k + 1
-        self.g = gradient_tensor
-        self.v = self.mu * self.v + (1 - self.mu) * self.g
-        self.r = self.rho * self.r + (1 - self.rho) * self.g ** 2
-        bias_r = self.r / (1 - self.rho ** self.k)
-        bias_v = self.v / (1 - self.mu ** self.k)
-        self.updated_weights = weight_tensor - self.learning_rate * (bias_v / (np.sqrt(bias_r) + np.finfo(float).eps))
 
         if self.regularizer == None:
             self.k = self.k + 1
