@@ -64,16 +64,25 @@ class BatchNormalization(BaseLayers):
         self.input_tensor = input_tensor
 
         self.initialize()
+
         self.mean = np.mean(input_tensor, axis=0)
         self.variance = np.var(input_tensor, axis=0)
-        output = (input_tensor - self.mean) / np.sqrt(self.variance + self.epsilon)
 
-        self.tilde_mean = self.alpha * self.tilde_mean + (1 - self.alpha) * self.mean
-        self.tilde_variance = self.alpha * self.tilde_variance + (1 - self.alpha) * self.variance
+        if np.all(self.tilde_mean == 0):
+            self.tilde_mean = self.mean
+
+        if np.all(self.tilde_variance == 0):
+            self.tilde_variance = self.variance
+
+        if self.testing_phase == False:
+            self.tilde_mean = self.alpha * self.tilde_mean + (1 - self.alpha) * self.mean
+            self.tilde_variance = self.alpha * self.tilde_variance + (1 - self.alpha) * self.variance
 
         if self.testing_phase == True:
-            output = (input_tensor - self.tilde_mean) / np.sqrt(self.tilde_variance + self.epsilon)
+            self.mean = self.tilde_mean
+            self.variance = self.tilde_variance
 
+        output = (input_tensor - self.mean) / np.sqrt(self.variance + self.epsilon)
         self.output = self.weights * output + self.bias
 
         if dim_4 == True:
@@ -83,11 +92,20 @@ class BatchNormalization(BaseLayers):
 
     def backward(self, error_tensor):
 
-        gradient_weights = np.sum(error_tensor * self.weights)
-        gradient_bias = np.sum(self.bias)
+        dim_4 = False
+        if len(error_tensor.shape) == 4:
+            dim_4 = True
+            error_tensor = self.reformat(error_tensor)
 
         norm_mean = self.input_tensor - self.mean
         var_eps = self.variance + self.epsilon
+
+        self.mul = norm_mean / np.sqrt(self.variance + self.epsilon)
+
+        self.gradient_weights = np.sum(error_tensor * self.mul, keepdims=True, axis=0)
+        self.gradient_bias = np.sum(error_tensor, keepdims=True, axis=0)
+
+
 
         gamma_err = error_tensor * self.weights
         inv_batch = 1. / error_tensor.shape[0]
@@ -103,6 +121,11 @@ class BatchNormalization(BaseLayers):
         second = grad_var * (2. * norm_mean) * inv_batch
         grad_mu = grad_mu_two + grad_mu_one
 
-        gradient_input = first + second + inv_batch * grad_mu
+        self.gradient_input = first + second + inv_batch * grad_mu
 
-        return gradient_input, gradient_weights, gradient_bias
+        if dim_4 == True:
+            self.gradient_input = self.reformat(self.gradient_input)
+            self.gradient_bias = self.reformat(self.gradient_bias)
+            self.gradient_weights = self.reformat(self.gradient_weights)
+
+        return self.gradient_input, [self.gradient_weights, self.gradient_bias]
