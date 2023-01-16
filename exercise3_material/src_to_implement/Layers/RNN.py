@@ -55,28 +55,41 @@ class RNN(BaseLayers):
             self.inputs[i] = [np.hstack((self.h[i][0], input_tensor[i])).reshape(self.weight_length)]
             self.h[i+1][0] = self.tanh.forward(self.layer1.forward(self.inputs[i]))
             self.y[i] = self.sigmoid.forward(self.layer2.forward(self.h[i+1]))
-            print('h_{}:'.format(i))
-            print(self.h[i+1][0])
-            print('y_{}:'.format(i))
-            print(self.y[i])
+           # print('h_{}:'.format(i))
+           # print(self.h[i+1][0])
+           # print('y_{}:'.format(i))
+           # print(self.y[i])
 
         return self.y
 
     def backward(self, error_tensor):
         # 1st h_gradient = 0
+        print('error shape', error_tensor.shape)
         shape = np.zeros(self.input_tensor.shape)
-        h_gradient = np.empty((self.input_tensor.shape[0], self.output_size))
-        for i in range(self.hidden_size+1, -1, -1):
+        gradients = np.empty(self.input_tensor.shape)
+        h_gradient = np.zeros(self.hidden_size)
+        # h_gradient = np.zeros((1, self.hidden_size))
+        for i in range(self.input_tensor.shape[0]-1, 0, -1):
             # sigmoid layer stores inputs in correct order, so no further adjustment of the input is needed
-            # sigmoid_gradient = self.sigmoid.backward(error_tensor)
-            # combined_gradient = sigmoid_gradient + h_gradient
-            # tanh_gradient = self.tanh.backward(combined_gradient)
-            # gradient = layer2.backward(tanh_gradient)
-            # next_h_gradient = split -> gradient
-            pass
+            print('i, h_gradient: ', i, h_gradient)
+            sigmoid_gradient = self.sigmoid.backward(error_tensor[i])
+            print('sig shape: ', sigmoid_gradient.shape)
+            self.layer2.set_input_tensor(self.h[i-1])
+            gradient1 = self.layer2.backward(sigmoid_gradient)
+            print('gradient1 shape', gradient1.shape)
+            combined_gradient = gradient1 + h_gradient
+            print('comb shape: ', combined_gradient.shape)
+            tanh_gradient = self.tanh.backward(combined_gradient)
+            print('tanh shape', tanh_gradient.shape)
+            self.layer1.set_input_tensor(self.inputs[i])
+            gradient = self.layer1.backward(tanh_gradient)
+            print('gradient shape', gradient.shape)
+            gradients[i] = gradient[0][0:self.input_size]
+            h_gradient = gradient[0][self.input_size:]
+            print(len(gradients[i]))
+            print(len(h_gradient))
 
-
-        return shape
+        return gradients
 
     def initialize(self, weights_initializer, bias_initializer):
         weights = weights_initializer
