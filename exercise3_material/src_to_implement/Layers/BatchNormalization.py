@@ -1,131 +1,110 @@
 from .Base import BaseLayers
 from .FullyConnected import FullyConnected
 import numpy as np
+from copy import deepcopy
+from .Helpers import compute_bn_gradients
 
 class BatchNormalization(BaseLayers):
     def __init__(self, channels):
         super(BatchNormalization, self).__init__()
         self.trainable = True
-        self.weights = None
-        self.channels = channels
-        self.epsilon = np.finfo(float).eps
-        self.tilde_mean = 0
-        self.tilde_variance = 0
-        self.k = 0
-        self.alpha = 0.8
-        self.sigma = 0
-        self.shape_0 = 0
-        self.shape_1 = 0
-        self.shape_2 = 0
-        self.shape_3 = 0
+        self.c = channels
+        self.input_tensor = np.array([])
+        self.shape = tuple()  # shape of input_tensor
+        self.image2vec = False
 
-    def initialize(self):
-        self.weights = np.ones(self.channels)
-        self.bias = np.zeros(self.channels)
+        # define initialize weights(gamma) and bias(beta)
+        self.weights = np.ones(self.c)
+        self.bias = np.zeros(self.c)
+
+        # define optimizer properties
+        self._optimizer_weights = None
+        self._optimizer_bias = None
+
+        # define mean and variance
+        self.mean = 0
+        self.variance = 0
+        self.X_wave = 0
+
+        # define gradients
+        self.gradient_input = None
+        self.gradient_weights = None
+        self.gradient_bias = None
 
     def reformat(self, tensor):
 
+        output = []
+        # image-like input tensor
         if len(tensor.shape) == 4:
-            self.shape_0 = tensor.shape[0]
-            self.shape_1 = tensor.shape[1]
-            self.shape_2 = tensor.shape[2]
-            self.shape_3 = tensor.shape[3]
+            self.shape = tensor.shape
+            b, c, h, w = tensor.shape
+            output = tensor.swapaxes(0, 1).reshape((c, -1)).T
 
-            tensor_conv = np.zeros((tensor.shape[0], tensor.shape[2] * tensor.shape[3], tensor.shape[1]))
+        # vector-like input tensor
+        elif len(tensor.shape) == 2:
+            b, c, h, w = self.shape
+            output = tensor.T.reshape(c, b, h, w).swapaxes(0, 1)
 
-            for i in range(self.shape_0):
-                tensor_re = tensor[i]
-                tensor_re = np.reshape(tensor_re, (tensor_re.shape[0], tensor_re.shape[1] * tensor_re.shape[2]))
-                tensor_re = np.transpose(tensor_re)
-                tensor_conv[i] = tensor_re
-
-            tensor_conv = np.reshape(tensor_conv, (tensor_conv.shape[0] * tensor_conv.shape[1], tensor_conv.shape[2]))
-
-        if len(tensor.shape) == 2:
-
-            tensor_conv = np.zeros((self.shape_0, self.shape_1, self.shape_2, self.shape_3))
-            tensor = np.reshape(tensor, (self.shape_0, self.shape_2 * self.shape_3, self.shape_1))
-
-            for i in range(self.shape_0):
-                tensor_re = tensor[i]
-                tensor_re = np.transpose(tensor_re)
-                tensor_re = np.reshape(tensor_re, (self.shape_1, self.shape_2, self.shape_3))
-                tensor_conv[i] = tensor_re
-
-        return tensor_conv
+        return output
 
     def forward(self, input_tensor):
 
-        dim_4 = False
+        self.input_tensor = input_tensor
+        alpha = 0.8
+
         if len(input_tensor.shape) == 4:
-            dim_4 = True
+            self.image2vec = True
             input_tensor = self.reformat(input_tensor)
 
-        self.input_tensor = input_tensor
+        # too expensive to calculate mean and var in test, so we use moving average
+        if self.testing_phase:
+            self.mean = alpha * self.mean + (1 - alpha) * self.mean
+            self.variance = alpha * self.variance + (1 - alpha) * self.variance
+        else:
+            self.mean = np.mean(input_tensor, axis=0)
+            self.variance = np.var(input_tensor, axis=0)
 
-        self.initialize()
+        self.X_wave = (input_tensor - self.mean) / np.sqrt(self.variance + np.finfo(float).eps)
+        output = self.X_wave * self.weights + self.bias
 
-        self.mean = np.mean(input_tensor, axis=0)
-        self.variance = np.var(input_tensor, axis=0)
+        if self.image2vec:
+            output = self.reformat(output)
 
-        if np.all(self.tilde_mean == 0):
-            self.tilde_mean = self.mean
-
-        if np.all(self.tilde_variance == 0):
-            self.tilde_variance = self.variance
-
-        if self.testing_phase == False:
-            self.tilde_mean = self.alpha * self.tilde_mean + (1 - self.alpha) * self.mean
-            self.tilde_variance = self.alpha * self.tilde_variance + (1 - self.alpha) * self.variance
-
-        if self.testing_phase == True:
-            self.mean = self.tilde_mean
-            self.variance = self.tilde_variance
-
-        output = (input_tensor - self.mean) / np.sqrt(self.variance + self.epsilon)
-        self.output = self.weights * output + self.bias
-
-        if dim_4 == True:
-            self.output = self.reformat(self.output)
-
-        return self.output
+        return output
 
     def backward(self, error_tensor):
 
-        dim_4 = False
-        if len(error_tensor.shape) == 4:
-            dim_4 = True
+        if self.image2vec:
             error_tensor = self.reformat(error_tensor)
+            self.input_tensor = self.reformat(self.input_tensor)
 
-        norm_mean = self.input_tensor - self.mean
-        var_eps = self.variance + self.epsilon
+            # calculate gradients w.r.t input, weights and bias
+        self.gradient_input = compute_bn_gradients(error_tensor, self.input_tensor, self.weights, self.mean,
+                                                   self.variance)
+        self.gradient_weights = np.sum(error_tensor * self.X_wave, axis=0)
+        self.gradient_bias = np.sum(error_tensor, axis=0)
 
-        self.mul = norm_mean / np.sqrt(self.variance + self.epsilon)
+        # update weights and bias
+        if self._optimizer_weights is not None:
+            self.weights = self._optimizer_weights.calculate_update(self.weights, self.gradient_weights)
+        if self._optimizer_bias is not None:
+            self.bias = self._optimizer_bias.calculate_update(self.bias, self.gradient_bias)
 
-        self.gradient_weights = np.sum(error_tensor * self.mul, keepdims=True, axis=0)
-        self.gradient_bias = np.sum(error_tensor, keepdims=True, axis=0)
-
-
-
-        gamma_err = error_tensor * self.weights
-        inv_batch = 1. / error_tensor.shape[0]
-
-        grad_var = np.sum(norm_mean * gamma_err * -0.5 * (var_eps ** (-3 / 2)), keepdims=True, axis=0)
-
-        sqrt_var = np.sqrt(var_eps)
-        first = gamma_err * 1. / sqrt_var
-
-        grad_mu_two = (grad_var * np.sum(-2. * norm_mean, keepdims=True, axis=0)) * inv_batch
-        grad_mu_one = np.sum(gamma_err * -1. / sqrt_var, keepdims=True, axis=0)
-
-        second = grad_var * (2. * norm_mean) * inv_batch
-        grad_mu = grad_mu_two + grad_mu_one
-
-        self.gradient_input = first + second + inv_batch * grad_mu
-
-        if dim_4 == True:
+        if self.image2vec:
             self.gradient_input = self.reformat(self.gradient_input)
-            self.gradient_bias = self.reformat(self.gradient_bias)
-            self.gradient_weights = self.reformat(self.gradient_weights)
 
-        return self.gradient_input, [self.gradient_weights, self.gradient_bias]
+        return self.gradient_input
+
+    def initialize(self, weight_initializer, bias_initializer):
+        self.weights = weight_initializer.initialize(self.weights.shape, self.c, self.c)
+        self.bias = bias_initializer.initialize(self.bias.shape, self.c, self.c)
+        pass
+
+    @property
+    def optimizer(self):
+        return self._optimizer_weights
+
+    @optimizer.setter
+    def optimizer(self, optimizer):
+        self._optimizer_weights = optimizer
+        self._optimizer_bias = deepcopy(optimizer)
