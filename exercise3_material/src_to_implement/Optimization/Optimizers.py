@@ -7,7 +7,7 @@ class Optimizer:
 
     def add_regularizer(self, regularizer):
         self.regularizer = regularizer
-        return
+
 
 class Sgd(Optimizer):
     def __init__(self, learning_rate):

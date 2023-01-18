@@ -6,10 +6,10 @@ class NeuralNetwork(Base.BaseLayers):
 
     def __init__(self, optimizer, weights_initializer, bias_initializer):
         super(NeuralNetwork, self).__init__()
-        self._phase = self.testing_phase
+
         self.optimizer = optimizer
-        self.loss = []
-        self.layers = []
+        self.loss = list()
+        self.layers = list()
         self.data_layer = None
         self.loss_layer = None
         self.weights_initializer = weights_initializer
@@ -20,9 +20,14 @@ class NeuralNetwork(Base.BaseLayers):
         self.input_tensor, self.label_tensor = self.data_layer.next()
         self.layer_input = self.input_tensor
 
+        loss = 0
+
         for layer in self.layers:
             self.layer_input = layer.forward(self.layer_input)
-        self.output = self.loss_layer.forward(self.layer_input, self.label_tensor)
+            if layer.trainable is True and self.optimizer.regularizer is not None:
+                loss = loss + self.optimizer.regularizer.norm(layer.weights)
+
+        self.output = self.loss_layer.forward(self.layer_input, self.label_tensor) + loss
 
         return self.output
 
@@ -38,14 +43,12 @@ class NeuralNetwork(Base.BaseLayers):
             layer.optimizer = copy.deepcopy(self.optimizer)
             layer.initialize(self.weights_initializer, self.bias_initializer)
         self.layers.append(layer)
-        return
 
     def get_phase(self):
-        return self._phase
+        return self._testing_phase
 
     def set_phase(self, testing_phase):
-        self._phase = testing_phase
-        return
+        self._testing_phase = testing_phase
 
     phase = property(get_phase, set_phase)
 
@@ -59,6 +62,7 @@ class NeuralNetwork(Base.BaseLayers):
         self.set_phase(True)
         layer_input = input_tensor
         for layer in self.layers:
+            layer.testing_phase = True
             layer_input = layer.forward(layer_input)
         return layer_input
 

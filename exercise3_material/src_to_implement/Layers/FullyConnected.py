@@ -1,9 +1,8 @@
 from .Base import BaseLayers
-from .Initializers import Constant, UniformRandom, He, Xavier
 import numpy as np
 import sys
 sys.path.append("..")
-from src_to_implement.Optimization import Optimizers
+
 
 
 np.random.seed()

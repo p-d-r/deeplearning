@@ -2,8 +2,6 @@ import numpy as np
 
 class L2_Regularizer:
     def __init__(self, alpha):
-        self.loss = None
-        self.subgradient = None
         self.alpha = alpha
 
     def calculate_gradient(self, weights):
@@ -14,8 +12,6 @@ class L2_Regularizer:
 
 class L1_Regularizer:
     def __init__(self, alpha):
-        self.loss = None
-        self.subgradient = None
         self.alpha = alpha
 
     def calculate_gradient(self, weights):

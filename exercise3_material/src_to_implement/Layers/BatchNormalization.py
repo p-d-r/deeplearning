@@ -1,5 +1,4 @@
 from .Base import BaseLayers
-from .FullyConnected import FullyConnected
 import numpy as np
 from copy import deepcopy
 from .Helpers import compute_bn_gradients
@@ -7,15 +6,15 @@ from .Helpers import compute_bn_gradients
 class BatchNormalization(BaseLayers):
     def __init__(self, channels):
         super(BatchNormalization, self).__init__()
+
+        # define parameters
         self.trainable = True
         self.c = channels
         self.input_tensor = np.array([])
         self.shape = tuple()  # shape of input_tensor
         self.image2vec = False
-
-        # define initialize weights(gamma) and bias(beta)
-        self.weights = np.ones(self.c)
-        self.bias = np.zeros(self.c)
+        self.weights = np.ones(self.c) #gamma
+        self.bias = np.zeros(self.c) #beta
 
         # define optimizer properties
         self._optimizer_weights = None
@@ -24,7 +23,7 @@ class BatchNormalization(BaseLayers):
         # define mean and variance
         self.mean = 0
         self.variance = 0
-        self.X_wave = 0
+        self.x = 0
 
         # define gradients
         self.gradient_input = None
@@ -33,6 +32,7 @@ class BatchNormalization(BaseLayers):
 
     def reformat(self, tensor):
 
+        # in case of convolution
         output = []
         # image-like input tensor
         if len(tensor.shape) == 4:
@@ -64,8 +64,8 @@ class BatchNormalization(BaseLayers):
             self.mean = np.mean(input_tensor, axis=0)
             self.variance = np.var(input_tensor, axis=0)
 
-        self.X_wave = (input_tensor - self.mean) / np.sqrt(self.variance + np.finfo(float).eps)
-        output = self.X_wave * self.weights + self.bias
+        self.x = (input_tensor - self.mean) / np.sqrt(self.variance + np.finfo(float).eps)
+        output = self.x * self.weights + self.bias
 
         if self.image2vec:
             output = self.reformat(output)
@@ -78,10 +78,10 @@ class BatchNormalization(BaseLayers):
             error_tensor = self.reformat(error_tensor)
             self.input_tensor = self.reformat(self.input_tensor)
 
-            # calculate gradients w.r.t input, weights and bias
+        # calculate gradients w.r.t input, weights and bias
         self.gradient_input = compute_bn_gradients(error_tensor, self.input_tensor, self.weights, self.mean,
                                                    self.variance)
-        self.gradient_weights = np.sum(error_tensor * self.X_wave, axis=0)
+        self.gradient_weights = np.sum(error_tensor * self.x, axis=0)
         self.gradient_bias = np.sum(error_tensor, axis=0)
 
         # update weights and bias
