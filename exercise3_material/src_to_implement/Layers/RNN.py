@@ -14,16 +14,19 @@ class RNN(BaseLayers):
         self.output_size = output_size
         self.weight_length = input_size + hidden_size
         self.layer1 = FullyConnected(input_size + hidden_size, hidden_size)
-        self.weights = self.layer1.weights
-        self.bias = self.weights[-1, :]
         self.tanh = TanH()
         self.layer2 = FullyConnected(hidden_size, output_size)
         self.sigmoid = Sigmoid()
+        self._optimizer = None
+        self.h = None
+        self._gradient_weights = np.zeros(self.weights.shape)
+        self.gradient_weights2 = np.zeros(self.layer2.weights.shape)
         self.inputs = None
+        self.tanh_activations = None
         self.trainable = True
         self.input_tensor = None
         self.time_steps = None
-        self.h = None
+        self.h_memo = np.zeros(self.hidden_size)
         self.y = None
         self._memorize = False
 
@@ -35,64 +38,104 @@ class RNN(BaseLayers):
     def memorize(self, value):
         self._memorize = value
 
+    @property
+    def optimizer(self):
+        return self._optimizer
+
+    @optimizer.setter
+    def optimizer(self, value):
+        self._optimizer = value
+        #self.layer1.optimizer = value
+        #self.layer2.optimizer = value
+
+    @property
+    def gradient_weights(self):
+        return self._gradient_weights
+
+    @gradient_weights.setter
+    def gradient_weights(self, value):
+        self._gradient_weights = value
+
+    @property
+    def weights(self):
+        return self.layer1.weights
+
+    @weights.setter
+    def weights(self, value):
+        self.layer1.weights = value
+
+    @property
+    def bias(self):
+        return self.layer1.bias
+
+    @bias.setter
+    def bias(self, value):
+        self.layer1.bias = value
+
     def forward(self, input_tensor):
         # hidden_size = number of hidden states
         # -> hidden_size + 2(input-layer, output-layer) == input_tensor.shape[0]?
-        print('input_size: ', self.input_size)
-        print('input_tensor: ', input_tensor.shape)
-        print('output_size: ', self.output_size)
-        print('hidden_size: ', self.hidden_size)
-        self.inputs = np.empty((input_tensor.shape[0], 1, self.weight_length))
-        self.h = np.empty((input_tensor.shape[0], 1, self.hidden_size))
-        self.y = np.empty((input_tensor.shape[0], self.output_size))
+        self.inputs = np.zeros((input_tensor.shape[0], 1, self.weight_length))
+        self.h = np.zeros((input_tensor.shape[0], 1, self.hidden_size))
+        self.y = np.zeros((input_tensor.shape[0], self.output_size))
         self.input_tensor = input_tensor
-        # initialize h_0 with zeroes
-        self.h[0][0] = np.zeros(self.hidden_size)
-
+        # compute the first run with h_memo = [0,0,0...] or memorized h[-1]
+        self.inputs[0] = np.hstack((input_tensor[0], self.h_memo))
+        self.h[0][0] = self.tanh.forward(self.layer1.forward(self.inputs[0]))
+        self.y[0] = self.sigmoid.forward(self.layer2.forward(self.h[0]))
         # compute h_i-1 -> h_i, y_i
-        for i in range(0, self.input_tensor.shape[0]-1):
+        for i in range(1, self.input_tensor.shape[0]):
             # convert input vector to matrix for technical purpose
-            self.inputs[i] = [np.hstack((self.h[i][0], input_tensor[i])).reshape(self.weight_length)]
-            self.h[i+1][0] = self.tanh.forward(self.layer1.forward(self.inputs[i]))
-            self.y[i] = self.sigmoid.forward(self.layer2.forward(self.h[i+1]))
-           # print('h_{}:'.format(i))
-           # print(self.h[i+1][0])
-           # print('y_{}:'.format(i))
-           # print(self.y[i])
+            self.inputs[i] = np.hstack((input_tensor[i], self.h[i - 1][0]))
+            self.h[i][0] = self.tanh.forward(self.layer1.forward(self.inputs[i]))
+            self.y[i] = self.sigmoid.forward(self.layer2.forward(self.h[i]))
+
+        if self.memorize:
+            self.h_memo = self.h[-1][0]
 
         return self.y
 
     def backward(self, error_tensor):
+        # print('backward')
         # 1st h_gradient = 0
-        print('error shape', error_tensor.shape)
-        shape = np.zeros(self.input_tensor.shape)
         gradients = np.empty(self.input_tensor.shape)
-        h_gradient = np.zeros(self.hidden_size)
-        # h_gradient = np.zeros((1, self.hidden_size))
-        for i in range(self.input_tensor.shape[0]-1, 0, -1):
-            # sigmoid layer stores inputs in correct order, so no further adjustment of the input is needed
-            print('i, h_gradient: ', i, h_gradient)
+        h_gradient = 0
+        h_copy = self.h.copy()
+        h_copy[-1] = 0
+        self.gradient_weights = np.zeros(self.weights.shape)
+        self.gradient_weights2 = np.zeros(self.layer2.weights.shape)
+        for i in range(self.input_tensor.shape[0] - 1, -1, -1):
+            # set activation of the sigmoid layer accordingly
+            self.sigmoid.activation = self.y[i].reshape((1, len(self.y[i])))
             sigmoid_gradient = self.sigmoid.backward(error_tensor[i])
-            print('sig shape: ', sigmoid_gradient.shape)
-            self.layer2.set_input_tensor(self.h[i-1])
-            gradient1 = self.layer2.backward(sigmoid_gradient)
-            print('gradient1 shape', gradient1.shape)
-            combined_gradient = gradient1 + h_gradient
-            print('comb shape: ', combined_gradient.shape)
+            # set input h_i for the 2nd fully connected layer accordingly
+            self.layer2.set_input_tensor(self.h[i])
+            gradient2 = self.layer2.backward(sigmoid_gradient)
+            self.gradient_weights2 += self.layer2.gradient_weights
+            self.layer2.gradient_weights = self.gradient_weights2.copy()
+            if self.optimizer is not None:
+                self.layer2.gradient_weights = self.optimizer.calculate_update(self.layer2.weights, self.layer2.gradient_weights)
+            # sum up the different gradients to get the derivative of the copy procedure
+            combined_gradient = gradient2 + h_gradient
+            # set the activation of the tanh layer accordingly
+            self.tanh.activation = self.h[i]
             tanh_gradient = self.tanh.backward(combined_gradient)
-            print('tanh shape', tanh_gradient.shape)
+            # set the input for the 1st fully connected layer accordingly
             self.layer1.set_input_tensor(self.inputs[i])
             gradient = self.layer1.backward(tanh_gradient)
-            print('gradient shape', gradient.shape)
+            self.gradient_weights += self.layer1.gradient_weights
+            self.layer1.gradient_weights = self.gradient_weights.copy()
+            if self.optimizer is not None:
+                self.weights = self.optimizer.calculate_update(self.weights, self.gradient_weights)
+            # split the gradient to get the respective gradients for h_i and x_i
             gradients[i] = gradient[0][0:self.input_size]
             h_gradient = gradient[0][self.input_size:]
-            print(len(gradients[i]))
-            print(len(h_gradient))
 
         return gradients
 
     def initialize(self, weights_initializer, bias_initializer):
-        weights = weights_initializer
-        self.weights = weights.initialize(np.shape(self.weights), self.input_size, self.output_size)
-        bias = bias_initializer
-        self.bias = bias.initialize(np.shape(self.bias), self.input_size, self.output_size)
+        self.layer1.weights = weights_initializer.initialize(np.shape(self.weights), self.input_size, self.hidden_size)
+        self.layer1.bias = bias_initializer.initialize(np.shape(self.bias), self.input_size, self.hidden_size)
+        self.layer2.weights = weights_initializer.initialize(np.shape(self.layer2.weights), self.hidden_size,
+                                                             self.output_size)
+        self.layer2.bias = bias_initializer.initialize(np.shape(self.layer2.bias), self.hidden_size, self.output_size)
