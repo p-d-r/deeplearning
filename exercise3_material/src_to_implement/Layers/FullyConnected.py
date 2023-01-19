@@ -1,7 +1,7 @@
 from .Base import BaseLayers
 import numpy as np
 import sys
-sys.path.append("..")
+sys.path.append("../../../../../../..")
 
 
 
@@ -40,12 +40,6 @@ class FullyConnected(BaseLayers):
 
     def set_optimizer(self, x):
         self._optimizer = x
-
-    def get_input_tensor(self):
-        return self._input_tensor
-
-    def set_input_tensor(self, _input_tensor):
-        self._input_tensor = _input_tensor
 
     @property
     def gradient_weights(self):

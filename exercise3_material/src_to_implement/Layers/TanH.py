@@ -9,8 +9,7 @@ class TanH(BaseLayers):
 
     def forward(self, input_tensor):
         self.activation = (np.exp(input_tensor) - np.exp(-input_tensor)) / \
-                          (np.exp(input_tensor) + np.exp(-input_tensor))
-
+                         (np.exp(input_tensor) + np.exp(-input_tensor))
         return self.activation
 
     def backward(self, error_tensor):
