@@ -117,8 +117,6 @@ class RNN(BaseLayers):
             self.layer2.input_tensor = self.h_bias[i]
             gradient2 = self.layer2.backward(sigmoid_gradient)
             self.gradient_weights2 += self.layer2.gradient_weights.copy()
-            if self.optimizer is not None:
-                self.layer2.weights = self.optimizer.calculate_update(self.layer2.weights, self.layer2.gradient_weights)
             # sum up the different gradients to get the derivative of the copy procedure
             combined_gradient = gradient2 + h_gradient
             # set the activation of the tanh layer accordingly
@@ -128,12 +126,14 @@ class RNN(BaseLayers):
             self.layer1.input_tensor = self.inputs_bias[i]
             gradient = self.layer1.backward(tanh_gradient)
             self.gradient_weights += self.layer1.gradient_weights.copy()
-            if self.optimizer is not None:
-                self.weights = self.optimizer.calculate_update(self.weights, self.gradient_weights)
             # split the gradient to get the respective gradients for h_i and x_i
             gradients[i] = gradient[0][0:self.input_size]
             h_gradient = gradient[0][self.input_size:]
 
+        if self.optimizer is not None:
+            self.layer2.weights = self.optimizer.calculate_update(self.layer2.weights, self.layer2.gradient_weights)
+        if self.optimizer is not None:
+            self.weights = self.optimizer.calculate_update(self.weights, self.gradient_weights)
         return gradients
 
     def initialize(self, weights_initializer, bias_initializer):
